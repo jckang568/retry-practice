@@ -30,8 +30,52 @@ sleep을 이용해서 요청을 할 수도 있고, 서비스 내부에 반복문
 기존에 lombok이나 스프링 관련 어노테이션(controller, service 등등)을
 현업에서 사용하고 있지만, 동작원리나 구현방식에 있어서는 전혀 지식이 없어, 관련
 자료를 한번 찾아보고 진행하려고 한다.\
-[Annotation 동작 원리와 사용법](https://hirlawldo.tistory.com/43)
+[Annotation 동작 원리와 사용법](https://hirlawldo.tistory.com/43)\
+[Java annotations 이란? 동작 원리 설명 + 활용 (커스텀 어노테이션)](https://velog.io/@anak_2/Java-annotations-%EC%9D%B4%EB%9E%80-%EC%84%A4%EB%AA%85-%ED%99%9C%EC%9A%A9)\
+[시의적절한 커스텀 어노테이션](https://techblog.woowahan.com/2684/)
 - AOP\
 AOP의 경우도 직접 구현해보거나 심도있게 다뤄보지 않아서 간단하게 개념정도 찾아보고
 진행하려고 한다. AOP 관련해서는 따로 메인주제로 다뤄볼 예정이다.\
 [Spring AOP 로거 개발 가이드](https://hirlawldo.tistory.com/31)
+
+## 4. 구현
+- 예시
+
+```java
+@Service
+public class FooService {
+
+  @Retry(
+          attempts = 3,
+          delay = 1000,
+          backoff = 2, // expotional backoff
+          exceptions = {IllegalArgumentException.class}
+  )
+  public void foo() {
+    System.out.println("foo");
+  }
+}
+```
+
+- Retry 어노테이션 선언
+```java
+@Target(ElementType.METHOD)
+@Retention(RetentionPolicy.RUNTIME)
+public @interface Retry {
+  int attempts();
+  long delay();
+  int backoff();
+  Class<? extends Throwable>[] value() default {};
+}
+```
+우선, 특정한 서비스를 다시 요청하기 위해 고려해야할점은 뭐가 있을까? 
+1. 시도회수
+2. 딜레이(시도 텀)
+3. Exponential backoff
+>Exponential backoff는 네트워크 통신에서 발생할 수 있는 충돌이나 혼잡을 관리하기 위한 전략 중 하나입니다. 이 기법은 데이터 전송 시간 간격을 조절하여 네트워크 혼잡을 완화하고 효율적인 통신을 도와주는데 사용됩니다.
+>간단한 원리는 다음과 같습니다:\
+>초기 전송: 먼저 데이터를 전송하려고 시도합니다. 이때 데이터 전송에 성공하면 문제가 없지만, 다른 기기와의 충돌이나 혼잡으로 실패할 수 있습니다.\
+>지수 백오프: 데이터 전송이 실패하면 재시도를 하기 전에 일정 시간 동안 기다립니다. 이때, 지수적 백오프를 사용하여 대기 시간을 늘려나갑니다. 즉, 첫 번째 실패 후에는 짧은 시간 동안 대기하고, 두 번째 실패 후에는 더 긴 시간 동안 대기하고, 그 후에는 더 긴 시간 동안 대기하며 이를 반복합니다.\
+>재시도: 대기 시간이 끝나면 데이터 전송을 다시 시도합니다. 이때, 대기 시간이 늘어나면 충돌 가능성이 감소하고 효율적인 통신이 가능해집니다.\
+>이러한 접근 방식을 통해 네트워크 혼잡을 관리하고 충돌을 최소화하며 데이터 전송의 성공 확률을 높일 수 있습니다. Exponential backoff는 주로 Ethernet과 같은 로컬 네트워크 환경 또는 TCP/IP와 같은 인터넷 프로토콜에서 사용됩니다.
+

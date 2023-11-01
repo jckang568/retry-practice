@@ -11,7 +11,6 @@ import org.springframework.util.StopWatch;
 @Component
 @Aspect
 public class LoggingAspect {
-
     @Around("@annotation(kr.co.jckang.retrypractice.annotation.LogExecutionTime)")
     public Object logExecutionTime(ProceedingJoinPoint joinPoint) throws Throwable{
         StopWatch stopWatch = new StopWatch();
