@@ -36,7 +36,8 @@ sleep을 이용해서 요청을 할 수도 있고, 서비스 내부에 반복문
 - AOP\
 AOP의 경우도 직접 구현해보거나 심도있게 다뤄보지 않아서 간단하게 개념정도 찾아보고
 진행하려고 한다. AOP 관련해서는 따로 메인주제로 다뤄볼 예정이다.\
-[Spring AOP 로거 개발 가이드](https://hirlawldo.tistory.com/31)
+[Spring AOP 로거 개발 가이드](https://hirlawldo.tistory.com/31)\
+[AOP 총정리](https://velog.io/@backtony/Spring-AOP-%EC%B4%9D%EC%A0%95%EB%A6%AC)
 
 ## 4. 구현
 - 예시

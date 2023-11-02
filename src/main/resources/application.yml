@@ -11,3 +11,4 @@ logging:
     root: debug
     org.apache.tomcat: info
     org.apache.tomcat.util.net: warn
+    org.apache.catalina.session: warn

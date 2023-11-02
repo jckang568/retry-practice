@@ -18,10 +18,6 @@ public class MainController {
     private final MainService mainService;
 
     @LogExecutionTime
-    @Retry(attempts = 1
-            , delay = 200
-            , backoff = 3
-            , value = NumberFormatException.class)
     @RequestMapping("/{param}/{count}")
     public ResponseEntity<String> test(
             @PathVariable String param
