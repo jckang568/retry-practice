@@ -4,6 +4,7 @@ import kr.co.jckang.retrypractice.annotation.Retry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
 import java.util.Random;
 
 @Slf4j
@@ -23,8 +24,22 @@ public class MainService {
         log.info("Exception does not occurred");
         return "Exception does not occurred";
     }
+
+    @Retry(attempts = 3
+            , delay = 3000
+            , backoff = 3
+            , value = IOException.class)
+    public void exceptionProcess() throws IOException {
+        log.info("exceptionProcess executed");
+        throwIOException();
+    }
+
+    private void throwIOException() throws IOException {
+        throw new IOException();
+    }
+
+
     public static boolean getRandomBoolean() {
-        Random random = new Random();
-        return random.nextBoolean();
+        return new Random().nextBoolean();
     }
 }

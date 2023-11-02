@@ -58,6 +58,18 @@ public class FooService {
 }
 ```
 
+우선, 특정한 서비스를 다시 요청하기 위해 고려해야할점은 뭐가 있을까? 
+1. 시도회수
+2. 딜레이(시도 텀)
+3. Exponential backoff
+>Exponential backoff는 네트워크 통신에서 발생할 수 있는 충돌이나 혼잡을 관리하기 위한 전략 중 하나입니다. 이 기법은 데이터 전송 시간 간격을 조절하여 네트워크 혼잡을 완화하고 효율적인 통신을 도와주는데 사용됩니다.
+>간단한 원리는 다음과 같습니다:\
+>초기 전송: 먼저 데이터를 전송하려고 시도합니다. 이때 데이터 전송에 성공하면 문제가 없지만, 다른 기기와의 충돌이나 혼잡으로 실패할 수 있습니다.\
+>지수 백오프: 데이터 전송이 실패하면 재시도를 하기 전에 일정 시간 동안 기다립니다. 이때, 지수적 백오프를 사용하여 대기 시간을 늘려나갑니다. 즉, 첫 번째 실패 후에는 짧은 시간 동안 대기하고, 두 번째 실패 후에는 더 긴 시간 동안 대기하고, 그 후에는 더 긴 시간 동안 대기하며 이를 반복합니다.\
+>재시도: 대기 시간이 끝나면 데이터 전송을 다시 시도합니다. 이때, 대기 시간이 늘어나면 충돌 가능성이 감소하고 효율적인 통신이 가능해집니다.\
+>이러한 접근 방식을 통해 네트워크 혼잡을 관리하고 충돌을 최소화하며 데이터 전송의 성공 확률을 높일 수 있습니다. Exponential backoff는 주로 Ethernet과 같은 로컬 네트워크 환경 또는 TCP/IP와 같은 인터넷 프로토콜에서 사용됩니다.
+4. 특정 상황에서의 제어를 위한 익셉션
+
 - Retry 어노테이션 선언
 ```java
 @Target(ElementType.METHOD)
@@ -69,14 +81,68 @@ public @interface Retry {
   Class<? extends Throwable>[] value() default {};
 }
 ```
-우선, 특정한 서비스를 다시 요청하기 위해 고려해야할점은 뭐가 있을까? 
-1. 시도회수
-2. 딜레이(시도 텀)
-3. Exponential backoff
->Exponential backoff는 네트워크 통신에서 발생할 수 있는 충돌이나 혼잡을 관리하기 위한 전략 중 하나입니다. 이 기법은 데이터 전송 시간 간격을 조절하여 네트워크 혼잡을 완화하고 효율적인 통신을 도와주는데 사용됩니다.
->간단한 원리는 다음과 같습니다:\
->초기 전송: 먼저 데이터를 전송하려고 시도합니다. 이때 데이터 전송에 성공하면 문제가 없지만, 다른 기기와의 충돌이나 혼잡으로 실패할 수 있습니다.\
->지수 백오프: 데이터 전송이 실패하면 재시도를 하기 전에 일정 시간 동안 기다립니다. 이때, 지수적 백오프를 사용하여 대기 시간을 늘려나갑니다. 즉, 첫 번째 실패 후에는 짧은 시간 동안 대기하고, 두 번째 실패 후에는 더 긴 시간 동안 대기하고, 그 후에는 더 긴 시간 동안 대기하며 이를 반복합니다.\
->재시도: 대기 시간이 끝나면 데이터 전송을 다시 시도합니다. 이때, 대기 시간이 늘어나면 충돌 가능성이 감소하고 효율적인 통신이 가능해집니다.\
->이러한 접근 방식을 통해 네트워크 혼잡을 관리하고 충돌을 최소화하며 데이터 전송의 성공 확률을 높일 수 있습니다. Exponential backoff는 주로 Ethernet과 같은 로컬 네트워크 환경 또는 TCP/IP와 같은 인터넷 프로토콜에서 사용됩니다.
+
+- AOP 구현
+```java
+@Slf4j
+@Component
+@Aspect
+public class RetryAspect {
+    @Around(value = "@annotation(kr.co.jckang.retrypractice.annotation.Retry) && execution(* *(..))")
+    public Object afterThrowingAdvice(ProceedingJoinPoint joinPoint) throws Throwable {
+        MethodSignature methodSignature = (MethodSignature) joinPoint.getSignature();
+        Method method = methodSignature.getMethod();
+        Retry retryAnnotation = method.getAnnotation(Retry.class);
+        int attempts = retryAnnotation.attempts();
+        long delay = retryAnnotation.delay();
+        int backoff = retryAnnotation.backoff();
+        Class<? extends Throwable>[] retryFor = retryAnnotation.value();
+
+        for(int retryCount = 0; retryCount < attempts; retryCount++)
+            try {
+                return joinPoint.proceed();
+            } catch (Throwable e) {
+                if (containsExceptionClass(e, retryFor)) {
+                    log.info("Retry # {} : {}", (retryCount + 1), e.getMessage());
+                    try {
+                        Thread.sleep(delay * getMultiples(retryCount, backoff));
+                    } catch (InterruptedException ex) {
+                        Thread.currentThread().interrupt();
+                    }
+                } else {
+                    throw e;
+                }
+            }
+        log.info("Max retries exceeded.");
+        return null;
+    }
+
+    private static int getMultiples(int retryCount, int backoff) {
+        if(retryCount == 0) {
+            return 1;
+        }
+        return retryCount * backoff;
+    }
+
+
+    private static boolean containsExceptionClass(Throwable ex, Class<? extends Throwable>[] retryFor) {
+        for (Class<? extends Throwable> retryExceptionClass : retryFor) {
+            if (retryExceptionClass.isInstance(ex)) {
+                log.info("Exception matches with retryFor: " + retryExceptionClass);
+                return true;
+            }
+        }
+        return false;
+    }
+}
+```
+
+여러번 시도끝에 일단 구상한 코드는 작성했으나, 이 코드가 정상적으로 작동하는지
+테스트 코드를 짜는데 어려움이 있다. 우선 aop관련 테스트 코드작성을 검색해봤는데
+내용을 잘 이해를 못하겠다. 모킹과 프록시에 대한 개념은 둘째치고 원시적으로도
+테스트 코드 작성이 어렵다. 어떤것부터 연습해봐야 하는걸까...?\
+[[토비의 스프링] 6-1. AOP - 단위 테스트와 프록시](https://wwlee94.github.io/category/study/toby-spring/aop/unit-test-and-proxy/#3-%EB%8B%A4%EC%9D%B4%EB%82%B4%EB%AF%B9-%ED%94%84%EB%A1%9D%EC%8B%9C%EC%99%80-%ED%8C%A9%ED%86%A0%EB%A6%AC-%EB%B9%88)
+
+
+
 

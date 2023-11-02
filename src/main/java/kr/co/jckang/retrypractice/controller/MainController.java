@@ -1,7 +1,6 @@
 package kr.co.jckang.retrypractice.controller;
 
 import kr.co.jckang.retrypractice.annotation.LogExecutionTime;
-import kr.co.jckang.retrypractice.annotation.Retry;
 import kr.co.jckang.retrypractice.service.MainService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
