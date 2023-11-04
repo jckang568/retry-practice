@@ -143,6 +143,13 @@ public class RetryAspect {
 테스트 코드 작성이 어렵다. 어떤것부터 연습해봐야 하는걸까...?\
 [[토비의 스프링] 6-1. AOP - 단위 테스트와 프록시](https://wwlee94.github.io/category/study/toby-spring/aop/unit-test-and-proxy/#3-%EB%8B%A4%EC%9D%B4%EB%82%B4%EB%AF%B9-%ED%94%84%EB%A1%9D%EC%8B%9C%EC%99%80-%ED%8C%A9%ED%86%A0%EB%A6%AC-%EB%B9%88)
 
-
+1. 어노테이션의 기능 나열화
+  - 시도회수
+  - 딜레이 시간
+  - 백오프값
+  - 익셉션 배열
+2. 그럼 각 기능들에 대해서 단위테스트를 진행해보고 싶다.
+  - 그럼 given-when-then에 따라 테스트 코드를 작성했을 때, given을
+어떤 객체에 주고 어떤 메서드를 호출하고 assert는 어떻게 작성해야하는지 감이 잡히질 않는다.
 
 
