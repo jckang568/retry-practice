@@ -1,6 +1,8 @@
 package kr.co.jckang.retrypractice.aspect;
 
+import jakarta.validation.constraints.Max;
 import kr.co.jckang.retrypractice.annotation.Retry;
+import kr.co.jckang.retrypractice.exception.MaximumAttemptsExceededException;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
@@ -39,8 +41,7 @@ public class RetryAspect {
                     throw e;
                 }
             }
-        log.info("Max retries exceeded.");
-        return null;
+        throw new MaximumAttemptsExceededException("Max retries exceeded");
     }
 
     private static int getMultiples(int retryCount, int backoff) {
