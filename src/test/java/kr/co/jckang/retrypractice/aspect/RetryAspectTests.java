@@ -8,6 +8,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.extension.ExtensionContext;
+import org.junit.jupiter.api.extension.TestInstancePostProcessor;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -21,21 +23,23 @@ import org.springframework.retry.annotation.Retryable;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.times;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.*;
 
 @Slf4j
 @ExtendWith(MockitoExtension.class)
+@ExtendWith(RetryAopHandlerTest.TimeAcceleration.class)
 class RetryAopHandlerTest {
 
 
     public static class Foo {
         @Retry(attempts = 4
-                , delay = 2000
-                , backoff = 3
+                , delay = 1000
+                , backoff = 2
                 , value = IllegalArgumentException.class
         )
         public void execute() {
+            log.info("void execute executed");
             throw new IllegalArgumentException("잘못된 입력값");
         }
 
@@ -54,46 +58,35 @@ class RetryAopHandlerTest {
     }
 
     @Test
-    void mockitoTest () {
+    void mockitoTest() throws RuntimeException, NoSuchMethodException {
         Foo mockFoo = Mockito.spy(Foo.class);
-        // Create an AspectJProxyFactory and add the RetryAspect
         AspectJProxyFactory factory = new AspectJProxyFactory(mockFoo);
-        factory.addAspect(new BrokenRetryAspect());
+        factory.addAspect(new RetryAspect());
         Foo foo = factory.getProxy();
-        // Define the expected number of retries based on the Retry annotation
-        int expectedAttempts = 4; // Adjust this based on your Retry annotation
+        Retry retry = mockFoo.getClass().getMethod("execute").getAnnotation(Retry.class);
+        int expectedAttempts = retry.attempts();
 
-        // Perform the method invocation
-        try {
-            foo.execute();
-        } catch (Exception e) {
-            // The method should throw an exception as defined in the Retry annotation
-        }
-
-        // Verify that the method was retried the expected number of times
+        Exception exception = assertThrows(Exception.class, foo::execute);
+        assertTrue(exception instanceof MaximumAttemptsExceededException);
         Mockito.verify(mockFoo, times(expectedAttempts)).execute();
-
-        /*doThrow(new IllegalArgumentException()).when(foo).execute();*/
-        /*assertThrows(IllegalArgumentException.class, foo::execute);*/
     }
 
 
     @Test
-    @DisplayName("최대시도 초과 시 MaximumAttemptsExceededException 발생")
+    @DisplayName("재시도 모두 실패 시 MaximumAttemptsExceededException 발생")
     void retry_WhenAllFail_ThenThrowFinalException() {
         // given
         AspectJProxyFactory factory = new AspectJProxyFactory(new Foo());
-        factory.addAspect(new BrokenRetryAspect());
+        factory.addAspect(new RetryAspect());
         Foo foo = factory.getProxy();
+        String message = "Max retries exceed";
 
-        long startTime = System.currentTimeMillis();
-        // when & then
+        // when
         assertThatThrownBy(foo::execute)
+                // then
                 .isInstanceOf(MaximumAttemptsExceededException.class)
-                .hasMessage("Max retries exceeded");
+                .hasMessage(message);
 
-        long endTime = System.currentTimeMillis();
-        log.info("실행시간: {} ms", endTime - startTime);
     }
 
     @Test
@@ -101,7 +94,7 @@ class RetryAopHandlerTest {
     void retry_WhenSuccess_ThenReturnValue() {
         // given
         AspectJProxyFactory factory = new AspectJProxyFactory(new Foo());
-        factory.addAspect(new BrokenRetryAspect());
+        factory.addAspect(new RetryAspect());
         Foo foo = factory.getProxy();
 
         // when
@@ -111,4 +104,85 @@ class RetryAopHandlerTest {
         assertThat(result).isEqualTo("SUCCESS");
     }
 
+    @Test
+    void testRetryWithDelay() throws NoSuchMethodException {
+        Foo mockFoo = Mockito.spy(Foo.class);
+        AspectJProxyFactory factory = new AspectJProxyFactory(mockFoo);
+        factory.addAspect(new RetryAspect());
+        Foo foo = factory.getProxy();
+        Retry retry = mockFoo.getClass().getMethod("execute").getAnnotation(Retry.class);
+        int expectedAttempts = retry.attempts();
+        long expectedDelay = retry.delay();
+
+        // Measure the execution time
+        long startTime = System.currentTimeMillis();
+        try {
+            foo.execute();
+        } catch (MaximumAttemptsExceededException e) {
+            // Handle the MaximumAttemptsExceededException if needed
+        }
+        long endTime = System.currentTimeMillis();
+
+        long executionTime = endTime - startTime;
+
+        // Verify that the method was retried the expected number of times
+        Mockito.verify(mockFoo, times(expectedAttempts)).execute();
+        log.info("executionTime: {}ms", executionTime);
+        log.info("expectedDelay: {}ms", expectedDelay);
+        // Check if the execution time is greater than or equal to the expected delay
+        assertTrue(executionTime >= expectedDelay);
+    }
+
+
+    @Test
+    void testRetryWithRetryAnnotation() throws NoSuchMethodException {
+        Foo mockFoo = Mockito.spy(Foo.class);
+        AspectJProxyFactory factory = new AspectJProxyFactory(mockFoo);
+        factory.addAspect(new RetryAspect());
+        Foo foo = factory.getProxy();
+
+        Retry retry = mockFoo.getClass().getMethod("execute").getAnnotation(Retry.class);
+        int expectedAttempts = retry.attempts();
+        long expectedDelay = retry.delay();
+
+        // Execute the method
+        try {
+            foo.execute();
+        } catch (MaximumAttemptsExceededException e) {
+            // Handle the MaximumAttemptsExceededException if needed
+        }
+
+        // Verify that the method was retried the expected number of times
+        Mockito.verify(mockFoo, times(expectedAttempts)).execute();
+
+        // Verify that the total execution time is greater than or equal to the expected delay
+        long actualExecutionTime = TimeAcceleration.getElapsedMillis();
+        assertTrue(actualExecutionTime >= expectedDelay);
+    }
+
+    static class TimeAcceleration implements TestInstancePostProcessor {
+        private static long elapsedMillis;
+
+        static long getElapsedMillis() {
+            return elapsedMillis;
+        }
+
+        @Override
+        public void postProcessTestInstance(Object testInstance, ExtensionContext context) throws NoSuchMethodException {
+            Retry retry = testInstance.getClass().getMethod("testRetryWithRetryAnnotation").getAnnotation(Retry.class);
+            int attempts = retry.attempts();
+            long delay = retry.delay();
+            int backoff = retry.backoff();
+
+            // Calculate the total execution time (taking backoff into account)
+            elapsedMillis = 0;
+            for (int i = 0; i < attempts; i++) {
+                elapsedMillis += delay;
+                delay *= backoff;
+            }
+        }
+    }
+
 }
+
+

@@ -22,7 +22,7 @@ sleep을 이용해서 요청을 할 수도 있고, 서비스 내부에 반복문
 했을 때 비슷한 역할을 하는 코드들을 반복적으로 작성하는 것은 좋은 프로그래머가
 되려면 지양해야 할 점인 것 같다. 스프링에서는 불필요한 코드를 줄여주는 어노테이션
 기능을 많이 제공해주고 있고, 오픈소스 라이브러리에서도 어노테이션으로 제공해주는
-경우(lombok, junit 등등)가 많다. 이에 커스텀 어노테이션으로 특정 서비스를
+경우(`lombok`, `junit` 등등)가 많다. 이에 커스텀 어노테이션으로 특정 서비스를
 재시도 할 수 있게 구현해보려고 한다.
 
 ## 3. 필요 사전지식
@@ -158,6 +158,9 @@ public class RetryAspect {
     1. 실행횟수 검증
     2. 재시도 간 지연된 시간 검증
   - RetryAspect 고도화
-    1. Jitter 개념 적용
+    1. Jitter 개념 적용\
+[[기타] Retry 전략에 대해서(Exponential Backoff, Jitter)](https://jungseob86.tistory.com/12)\
+[좀 더 우아한 Retry (Expenential Backoff with Jitter)](https://velog.io/@jazz_avenue/%EC%A2%80-%EB%8D%94-%EC%9A%B0%EC%95%84%ED%95%9C-Retry-Expenential-Backoff-with-Jitter)
+
 
 

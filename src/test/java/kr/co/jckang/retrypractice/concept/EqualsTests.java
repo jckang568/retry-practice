@@ -9,5 +9,9 @@ public class EqualsTests {
         System.out.println(abc.getClass().hashCode());
         System.out.println(abc.getClass().hashCode() == def.getClass().hashCode());
         System.out.println(abc.getClass() == def.getClass());
+
+        for (int i = 0; i < 3; i++) {
+
+        }
     }
 }
