@@ -1,6 +1,5 @@
 package kr.co.jckang.retrypractice.aspect;
 
-import jakarta.validation.constraints.Max;
 import kr.co.jckang.retrypractice.annotation.Retry;
 import kr.co.jckang.retrypractice.exception.MaximumAttemptsExceededException;
 import lombok.extern.slf4j.Slf4j;
@@ -10,41 +9,59 @@ import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
 import org.springframework.stereotype.Component;
 
-import java.lang.reflect.Method;
-
 @Slf4j
 @Component
 @Aspect
 public class RetryAspect {
     @Around(value = "@annotation(kr.co.jckang.retrypractice.annotation.Retry) && execution(* *(..))")
     public Object afterThrowingAdvice(ProceedingJoinPoint joinPoint) throws Throwable {
-        MethodSignature methodSignature = (MethodSignature) joinPoint.getSignature();
-        Method method = methodSignature.getMethod();
-        Retry retryAnnotation = method.getAnnotation(Retry.class);
-        int attempts = retryAnnotation.attempts();
-        long delay = retryAnnotation.delay();
-        int backoff = retryAnnotation.backoff();
-        Class<? extends Throwable>[] retryFor = retryAnnotation.value();
-
-        for(int retryCount = 0; retryCount < attempts; retryCount++)
-            try {
-                return joinPoint.proceed();
-            } catch (Throwable e) {
-                if (containsExceptionClass(e, retryFor)) {
-                    log.info("Retry # {} : {}", (retryCount + 1), e.getMessage());
-                    try {
-                        Thread.sleep(delay * getMultiples(retryCount, backoff));
-                    } catch (InterruptedException ex) {
-                        Thread.currentThread().interrupt();
-                    }
-                } else {
-                    throw e;
-                }
-            }
-        throw new MaximumAttemptsExceededException("Max retries exceeded");
+        return tryInvoke(joinPoint, retryAnnotation(joinPoint), 0);
     }
 
-    private static int getMultiples(int retryCount, int backoff) {
+    private Object tryInvoke(
+            ProceedingJoinPoint joinPoint,
+            Retry retry,
+            int retryCount
+    ) throws Throwable {
+        try {
+            return joinPoint.proceed();
+        } catch (Throwable e) {
+            if (retryCount >= retry.attempts() - 1) {
+                throw new MaximumAttemptsExceededException("Max retries exceeded");
+            }
+            assessmentPolicy(e, retry, retryCount);
+            return tryInvoke(joinPoint, retry, retryCount + 1);
+        }
+    }
+
+    private void assessmentPolicy(Throwable e, Retry retry, int retryCount) throws Throwable {
+        if (!containsExceptionClass(e, retry.value())) {
+            throw e;
+        }
+
+        log.info("Retry # {} : {}", (retryCount + 1), e.getMessage());
+        try {
+            Thread.sleep(calculateMillis(retry, retryCount));
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    private long calculateMillis(Retry retry, int retryCount) {
+        return retry.delay() *
+                getMultiples(
+                        retryCount,
+                        retry.backoff()
+                );
+    }
+
+    private Retry retryAnnotation(ProceedingJoinPoint joinPoint) {
+        return ((MethodSignature) joinPoint.getSignature())
+                .getMethod()
+                .getAnnotation(Retry.class);
+    }
+
+    private int getMultiples(int retryCount, int backoff) {
         if(retryCount == 0) {
             return 1;
         }
@@ -52,7 +69,10 @@ public class RetryAspect {
     }
 
 
-    private static boolean containsExceptionClass(Throwable ex, Class<? extends Throwable>[] retryFor) {
+    private boolean containsExceptionClass(
+            Throwable ex,
+            Class<? extends Throwable>[] retryFor
+    ) {
         for (Class<? extends Throwable> retryExceptionClass : retryFor) {
             if (retryExceptionClass.isInstance(ex)) {
                 log.info("Exception matches with retryFor: " + retryExceptionClass);
