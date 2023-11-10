@@ -168,7 +168,7 @@ public class RetryAspect {
 전략이라기 보다 오류에 가까운 용어이다. [What is jitter](https://www.techtarget.com/searchunifiedcommunications/definition/jitter)
 의 내용을 온전히 이해할 수는 없었지만 **대기시간의 변화** 에 초점을 맞춰보자.
 
->IP(인터넷 프로토콜) 네트워크의 지터 는 일부 패킷이 한 시스템에서
+> IP(인터넷 프로토콜) 네트워크의 지터 는 일부 패킷이 한 시스템에서
 > 다른 시스템으로 이동하는 데 더 오랜 시간이 걸릴 때 두 시스템 간의
 > 패킷 흐름 에 대한 대기시간의 변화입니다. 지터는 네트워크 정체, 
 > 타이밍 드리프트 및 경로 변경으로 인해 발생합니다.
@@ -183,13 +183,27 @@ public class RetryAspect {
 상황이 발생하는 것이다.(갑자기 순간이동하거나, 움직임이 끊겨보인다거나 등등)
 
 간단하게 정리해보자면 동일한 대기시간(위에서는 같은간격)으로 어떤 데이터를
-보내길 원했으나, 그 대기시간이 불규칙적으로 발생했다는 현상을 **jitter**가
-일어났다라고 생각해도 무방할 것이다.(정확히는 대기시간의 편차 또는 변위)
+보내길 원했으나, 그 대기시간이 불규칙적으로 변화했다는 현상을 **jitter**라고
+봐도 무방할 것이다.(정확히는 대기시간의 편차 또는 변위)
 
 자 그럼, jitter 전략이라는 말은 왜 생겨났을까? 일부러 오류를 발생시켜야하나?
-라는 의문이 들었지만, 
+대기시간을 불규칙적으로 변화하는 전략은 어떤경우에 사용해야할까? 위에서 진행해봤던
+Retry 전략은 그다지 크게 유용하지 않을 상황이 발생할 수 있다. 위에서 진행했던
+Backoff 전략은 재시도 횟수가 증가할수록 Backoff 시간이 증가하므로 네크워크에
+갑작스럽게 트래픽을 부담시키는 것을 피할 수 있다. 하지만 이 방법도 한계가 있다는
+것을 금방 알 수 있다. 어차피 동시에 요청이 몰린다면 똑같은 시간 간격으로 모든 재시도가
+동일하게 몰릴 것이기 때문이다. 따라서 조금 더 똑똑한, 교묘한 방법이 필요하다.
+이런 상황에서 등장하는 개념이 jitter인 것이다.
+jitter 전략을 retry에 이용하면
+동일한 재시도 시간간격에 불규칙성을 추가하여 동시에 들어온 요청들을 분산시켜 시스템의
+부하를 미연에 방지하여 시스템 정체를 줄여줄 것이다.
 
+전략이 없는 재시도는 문제를 개선하는것이 아니라 더욱 악화시킬 수 있기에, 전략적으로
+접근해야한다는 것을 알았다. 효과적인 백오프와 지터 전략은 하단 [레퍼런스](#references)의
+Exponential Backoff And Jitter 링크를 참고하자.
 
 ---
-참고.\
-[Circuit breaker](https://sungjk.github.io/2022/11/12/circuit-breaker.html)
+## References
+
+[Exponential Backoff And Jitter](https://aws.amazon.com/ko/blogs/architecture/exponential-backoff-and-jitter/)\
+[시간 제한, 재시도 및 지터를 사용한 백오프](https://aws.amazon.com/ko/builders-library/timeouts-retries-and-backoff-with-jitter/)
