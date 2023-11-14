@@ -1,30 +1,21 @@
 package kr.co.jckang.retrypractice.aspect;
 
-import ch.qos.logback.core.testUtil.MockInitialContext;
 import kr.co.jckang.retrypractice.annotation.Retry;
 import kr.co.jckang.retrypractice.exception.MaximumAttemptsExceededException;
-import kr.co.jckang.retrypractice.service.MainService;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.junit.jupiter.api.extension.ExtensionContext;
-import org.junit.jupiter.api.extension.TestInstancePostProcessor;
-import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
 import org.springframework.aop.aspectj.annotation.AspectJProxyFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.retry.annotation.Retryable;
 
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.times;
 
 @Slf4j
 @ExtendWith(MockitoExtension.class)
@@ -33,12 +24,14 @@ class RetryAopHandlerTest {
 
 
     public static class Foo {
+        Map<String, Object> attempts;
         @Retry(attempts = 4
                 , delay = 1000
                 , backoff = 2
                 , value = IllegalArgumentException.class
         )
         public void execute() {
+            attempts.put("attempts", "1");
             log.info("void execute executed");
             throw new IllegalArgumentException("잘못된 입력값");
         }
@@ -70,8 +63,6 @@ class RetryAopHandlerTest {
         } catch (Exception e) {
             // throw new RuntimeException(e);
         }
-        // Exception exception = assertThrows(Exception.class, foo::execute);
-        // assertTrue(exception instanceof MaximumAttemptsExceededException);
         Mockito.verify(mockFoo, times(expectedAttempts)).execute();
     }
 
@@ -118,29 +109,18 @@ class RetryAopHandlerTest {
         int expectedAttempts = retry.attempts();
         long expectedDelay = retry.delay();
 
-        // Measure the execution time
         long startTime = System.currentTimeMillis();
         try {
             foo.execute();
         } catch (MaximumAttemptsExceededException e) {
-            // Handle the MaximumAttemptsExceededException if needed
+            //To-do 최대 회수 시에도 오류 발생 시 로직
         }
         long endTime = System.currentTimeMillis();
-        /*
-        attempts 3
-        delay 1000
-        backoff 2
-        (5000ms)   실행 -> 1000ms -> 실행 -> 2000ms -> 실행 -> 4000ms -> 실행 7024ms
-                           1020      2030          4032
-
-         */
         long executionTime = endTime - startTime;
 
-        // Verify that the method was retried the expected number of times
         Mockito.verify(mockFoo, times(expectedAttempts)).execute();
         log.info("executionTime: {}ms", executionTime);
         log.info("expectedDelay: {}ms", expectedDelay);
-        // Check if the execution time is greater than or equal to the expected delay
         assertTrue(executionTime >= expectedDelay);
     }
 
@@ -156,19 +136,14 @@ class RetryAopHandlerTest {
         int expectedAttempts = retry.attempts();
         long expectedDelay = retry.delay();
 
-        // Execute the method
         try {
             foo.execute();
         } catch (MaximumAttemptsExceededException e) {
-            // Handle the MaximumAttemptsExceededException if needed
+            //To-do 최대 회수 시에도 오류 발생 시 로직
         }
 
-        // Verify that the method was retried the expected number of times
         Mockito.verify(mockFoo, times(expectedAttempts)).execute();
 
-        // Verify that the total execution time is greater than or equal to the expected delay
-        //long actualExecutionTime = TimeAcceleration.getElapsedMillis();
-        //assertTrue(actualExecutionTime >= expectedDelay);
     }
 
 }
